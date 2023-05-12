@@ -219,5 +219,3 @@ from dm.birthweight_t;
 END;
 $BODY$
 LANGUAGE plpgsql;
-
-select etl.corr_of_third_hypothesis_t()
