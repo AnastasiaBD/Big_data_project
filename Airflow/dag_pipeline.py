@@ -58,20 +58,26 @@ def mainair():
         conn.close()
         print('Good')
 
-
-    
-    
-    
+ 
 
 with DAG("dag_pipeline", schedule_interval="@once", start_date=datetime(2023,4,6), catchup=False) as dag:
 
     from airflow.operators.empty import EmptyOperator
     pg_hook = PostgresHook.get_hook("test")
 
-    start_step = EmptyOperator(task_id = "test")
-    load_main = PythonOperator(task_id = "load_main", python_callable=main_func)
-    load_main_air = PythonOperator(task_id="load_main_air", python_callable=mainair)
-    function_1 = PostgresOperator(task_id = "function_1", postgres_conn_id="pg_hook", sql = "select etl.transfer_us_county_sociohealth_data_t__to_dds();")
+    start_step = EmptyOperator(task_id = "start")
+    load_main = PythonOperator(task_id = "load_sociohealth", python_callable=main_func)
+    load_main_air = PythonOperator(task_id="load_air_aqi", python_callable=mainair)
+    transfer_sociohealth = PostgresOperator(task_id = "transfer_sociohealth_to_dds", postgres_conn_id="test", sql = "select etl.transfer_us_county_sociohealth_data_t__to_dds();")
+    transfer_air_aqi = PostgresOperator(task_id="transfer_air_aqi_to_dds", postgres_conn_id="test", sql= "select etl.transfer_us_aqi_t__to_dds();")
+    group_step = EmptyOperator(task_id="empty")
+    transfer_air_pollution_dm = PostgresOperator(task_id="air_pollution_dm", postgres_conn_id="test",sql="select etl.transfer_air_pollution_dm();")
+    transfer_to_addictions_dm = PostgresOperator(task_id="addictions_dm", postgres_conn_id="test",sql="select etl.transfer_to_addictions_dm();")
+    transfer_to_birthweight_dm = PostgresOperator(task_id="birthweight_dm", postgres_conn_id="test",sql="select etl.transfer_to_birthweight_dm();")
 
-    start_step >> load_main >> function_1
-    start_step >> load_main_air
+
+    start_step >> load_main >> transfer_sociohealth >> group_step
+    start_step >> load_main_air >> transfer_air_aqi >> group_step
+    group_step >> transfer_air_pollution_dm
+    group_step >> transfer_to_addictions_dm
+    group_step >> transfer_to_birthweight_dm
